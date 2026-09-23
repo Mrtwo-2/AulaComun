@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Aula Común — Acceso administrador</title>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:wght@700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#EFECE4; --paper-raised:#FBFAF6; --ink:#20232B; --ink-soft:#565B66;
+    --line:#D9D4C6; --moss:#3F5D48; --moss-dark:#2E4535; --ochre:#C98A2C;
+    --brick:#A63D33; --brick-soft:#F3E2DF;
+  }
+  *{box-sizing:border-box;}
+  body{
+    font-family:'Inter',sans-serif;
+    background:var(--paper);
+    color:var(--ink);
+    margin:0;
+    min-height:100vh;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:24px;
+  }
+  .tarjeta{
+    width:100%;
+    max-width:380px;
+    background:var(--paper-raised);
+    border:1px solid var(--line);
+    box-shadow:0 1px 0 var(--line);
+    padding:32px 28px;
+  }
+  .etiqueta{
+    display:inline-block;
+    background:var(--moss);
+    color:#EFECE4;
+    font-size:11px;
+    padding:3px 8px;
+    margin-bottom:14px;
+    letter-spacing:.02em;
+  }
+  h1{
+    font-family:'Source Serif 4',serif;
+    font-size:20px;
+    margin:0 0 4px;
+  }
+  p.sub{
+    color:var(--ink-soft);
+    font-size:13px;
+    margin:0 0 22px;
+    line-height:1.5;
+  }
+  label{
+    display:block;
+    font-size:12.5px;
+    color:var(--ink-soft);
+    margin-bottom:5px;
+    margin-top:14px;
+  }
+  input{
+    width:100%;
+    padding:9px 10px;
+    border:1px solid var(--line);
+    background:#fff;
+    color:var(--ink);
+    font-family:inherit;
+    font-size:14px;
+  }
+  input:focus{outline:2px solid var(--moss);}
+  button{
+    width:100%;
+    margin-top:20px;
+    padding:10px;
+    background:var(--moss);
+    color:#EFECE4;
+    border:none;
+    font-family:inherit;
+    font-size:14px;
+    font-weight:600;
+    cursor:pointer;
+  }
+  button:hover{background:var(--moss-dark);}
+  .error{
+    background:var(--brick-soft);
+    color:var(--brick);
+    font-size:12.5px;
+    padding:8px 10px;
+    margin-top:14px;
+    display:none;
+  }
+  .credenciales{
+    margin-top:20px;
+    font-size:11.5px;
+    color:var(--ink-soft);
+    border-left:2px solid var(--ochre);
+    padding-left:10px;
+    line-height:1.6;
+  }
+  .credenciales code{
+    background:rgba(0,0,0,.06);
+    padding:1px 4px;
+  }
+</style>
+</head>
+<body>
+  <div class="tarjeta">
+    <span class="etiqueta">VERSIÓN CORREGIDA — MECANISMO DE AUTENTICACIÓN</span>
+    <h1>Acceso administrador</h1>
+    <p class="sub">
+      Antes, quien encontraba esta ruta en <code>robots.txt</code> entraba
+      directo, sin credenciales. Ahora <code>/panel-admin/</code> exige un
+      correo y contraseña válidos de administrador antes de mostrar
+      cualquier contenido. Ocultar la URL dejó de ser la protección: ahora
+      lo es la verificación de sesión.
+    </p>
+
+    <form id="form-login" autocomplete="off">
+      <label for="correo">Correo institucional</label>
+      <input type="email" id="correo" placeholder="admin@universidad.edu" required>
+      <label for="clave">Contraseña</label>
+      <input type="password" id="clave" required>
+      <div class="error" id="error">Credenciales incorrectas o el usuario no tiene rol de Administrador.</div>
+      <button type="submit">Iniciar sesión</button>
+    </form>
+
+    <div class="credenciales">
+      Solo para fines de demostración en clase, la cuenta con rol
+      <strong>Administrador</strong> es:<br>
+      <code>admin@universidad.edu</code> / <code>admin123</code><br><br>
+      Cualquier otro correo (o esa contraseña incorrecta) es rechazado por
+      esta verificación.
+    </div>
+  </div>
+
+<script>
+/*
+  IMPORTANTE (para la presentación):
+  Esta verificación ocurre en el navegador porque este proyecto no tiene
+  backend real. Es útil para ILUSTRAR cómo debería comportarse el sistema,
+  pero no es una solución de seguridad de verdad: cualquiera podría leer
+  este JavaScript y ver la contraseña, o editar el localStorage a mano.
+  En un sistema real, esta verificación debe ocurrir en el SERVIDOR,
+  con la contraseña comparada de forma segura (hash) y una sesión firmada
+  (token/cookie httpOnly) que el servidor valida en cada solicitud a
+  /panel-admin/, devolviendo 401/403 si no es válida.
+*/
+const CUENTA_ADMIN = { correo: 'admin@universidad.edu', clave: 'admin123' };
+const CLAVE_SESION  = 'aulacomun_admin_sesion';
+const CLAVE_LOG     = 'aulacomun_admin_log';
+
+function registrarEvento(tipo, detalle){
+  const log = JSON.parse(localStorage.getItem(CLAVE_LOG) || '[]');
+  log.unshift({ tipo, detalle, fecha: new Date().toLocaleString('es-PE') });
+  localStorage.setItem(CLAVE_LOG, JSON.stringify(log.slice(0, 20)));
+}
+
+document.getElementById('form-login').addEventListener('submit', function(e){
+  e.preventDefault();
+  const correo = document.getElementById('correo').value.trim().toLowerCase();
+  const clave  = document.getElementById('clave').value;
+  const errorEl = document.getElementById('error');
+
+  if(correo === CUENTA_ADMIN.correo && clave === CUENTA_ADMIN.clave){
+    localStorage.setItem(CLAVE_SESION, JSON.stringify({
+      correo, rol: 'Administrador', inicio: Date.now()
+    }));
+    registrarEvento('Acceso autorizado', correo);
+    window.location.href = 'index.html';
+  } else {
+    registrarEvento('Intento fallido', correo || '(vacío)');
+    errorEl.style.display = 'block';
+  }
+});
+</script>
+</body>
+</html>

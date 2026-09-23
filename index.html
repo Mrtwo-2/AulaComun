@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Aula Común — Panel interno (versión corregida)</title>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:wght@700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#EFECE4; --paper-raised:#FBFAF6; --ink:#20232B; --ink-soft:#565B66;
+    --line:#D9D4C6; --moss:#3F5D48; --moss-dark:#2E4535; --ochre:#C98A2C;
+    --brick:#A63D33; --brick-soft:#F3E2DF;
+  }
+  body{
+    font-family:'Inter',sans-serif;
+    background:var(--paper);
+    color:var(--ink);
+    margin:0;
+    padding:48px 24px;
+  }
+  .caja{max-width:720px;margin:0 auto;}
+  .fila-top{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:12px;
+    flex-wrap:wrap;
+  }
+  h1{
+    font-family:'Source Serif 4',serif;
+    font-size:22px;
+    margin:0 0 4px;
+  }
+  .etiqueta{
+    display:inline-block;
+    background:var(--moss);
+    color:#EFECE4;
+    font-size:11.5px;
+    padding:3px 8px;
+    margin-bottom:18px;
+    letter-spacing:.02em;
+  }
+  .salir{
+    background:none;
+    border:1px solid var(--line);
+    color:var(--ink-soft);
+    font-family:inherit;
+    font-size:12.5px;
+    padding:6px 12px;
+    cursor:pointer;
+  }
+  .salir:hover{border-color:var(--brick);color:var(--brick);}
+  .explicacion{
+    background:var(--paper-raised);
+    border-left:3px solid var(--moss);
+    padding:16px 18px;
+    font-size:13.5px;
+    line-height:1.6;
+    color:var(--ink-soft);
+    margin:20px 0 28px;
+  }
+  .explicacion code{background:rgba(0,0,0,.06);padding:1px 5px;}
+  table{
+    width:100%;
+    border-collapse:collapse;
+    font-size:13.5px;
+    background:var(--paper-raised);
+    margin-bottom:28px;
+  }
+  th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--line);}
+  th{color:var(--moss-dark);font-weight:600;}
+  h2{
+    font-family:'Source Serif 4',serif;
+    font-size:16px;
+    margin:0 0 10px;
+  }
+  .log{
+    background:var(--paper-raised);
+    border:1px solid var(--line);
+    font-size:12.5px;
+  }
+  .log-fila{
+    display:flex;
+    justify-content:space-between;
+    gap:10px;
+    padding:8px 12px;
+    border-bottom:1px solid var(--line);
+  }
+  .log-fila:last-child{border-bottom:none;}
+  .log-tipo-ok{color:var(--moss-dark);font-weight:600;}
+  .log-tipo-fallo{color:var(--brick);font-weight:600;}
+  .log-vacio{padding:14px 12px;color:var(--ink-soft);}
+  .pie{margin-top:24px;font-size:12px;color:var(--ink-soft);}
+</style>
+</head>
+<body>
+<div class="caja" id="app" style="display:none;">
+  <div class="fila-top">
+    <div>
+      <span class="etiqueta">/panel-admin/ — CON MECANISMO DE AUTENTICACIÓN</span>
+      <h1>Panel interno de "Aula Común"</h1>
+    </div>
+    <button class="salir" onclick="cerrarSesion()">Cerrar sesión</button>
+  </div>
+
+  <div class="explicacion">
+    <strong>Qué se corrigió aquí:</strong><br><br>
+    Antes, esta ruta dependía de que nadie conociera la URL. Ahora ya no
+    depende de eso: aunque <code>robots.txt</code> siga listando
+    <code>/panel-admin/</code>, encontrar la ruta ya no es suficiente para
+    entrar. Cada vez que se carga esta página, el
+    <strong>servidor</strong> (aquí simulado en el navegador, ya que este
+    proyecto no tiene backend) debería revisar si existe una sesión válida
+    con rol <code>Administrador</code>. Si no la hay, la respuesta correcta
+    es <code>401/403</code> y redirigir al login — nunca mostrar el
+    contenido primero.
+    <br><br>
+    Además, se agregó una <strong>medida detectiva</strong>: un registro de
+    accesos (autorizados y fallidos), para poder notar si alguien está
+    intentando entrar sin permiso — algo que <code>robots.txt</code> nunca
+    pudo ofrecer.
+  </div>
+
+  <table>
+    <thead>
+      <tr><th>Usuario (ficticio)</th><th>Rol</th><th>Estado</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>demo.docente@universidad.edu</td><td>Docente</td><td>Activo</td></tr>
+      <tr><td>demo.estudiante@universidad.edu</td><td>Estudiante</td><td>Activo</td></tr>
+      <tr><td>demo.admin@universidad.edu</td><td>Administrador</td><td>Activo</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Registro de accesos (medida detectiva)</h2>
+  <div class="log" id="log"></div>
+
+  <p class="pie">
+    Todos los datos son inventados para la demostración. La verificación de
+    sesión ocurre en JavaScript solo porque este proyecto es 100% estático
+    (sin servidor); en un sistema real esta lógica vive en el backend, con
+    la sesión validada mediante un token firmado que el cliente no puede
+    falsificar.
+  </p>
+</div>
+
+<script>
+const CLAVE_SESION = 'aulacomun_admin_sesion';
+const CLAVE_LOG     = 'aulacomun_admin_log';
+
+function registrarEvento(tipo, detalle){
+  const log = JSON.parse(localStorage.getItem(CLAVE_LOG) || '[]');
+  log.unshift({ tipo, detalle, fecha: new Date().toLocaleString('es-PE') });
+  localStorage.setItem(CLAVE_LOG, JSON.stringify(log.slice(0, 20)));
+}
+
+function cerrarSesion(){
+  localStorage.removeItem(CLAVE_SESION);
+  window.location.href = 'login.html';
+}
+
+function pintarLog(){
+  const log = JSON.parse(localStorage.getItem(CLAVE_LOG) || '[]');
+  const cont = document.getElementById('log');
+  if(log.length === 0){
+    cont.innerHTML = '<div class="log-vacio">Aún no hay eventos registrados.</div>';
+    return;
+  }
+  cont.innerHTML = log.map(ev => `
+    <div class="log-fila">
+      <span class="${ev.tipo.includes('autorizado') ? 'log-tipo-ok' : 'log-tipo-fallo'}">${ev.tipo}</span>
+      <span>${ev.detalle}</span>
+      <span>${ev.fecha}</span>
+    </div>
+  `).join('');
+}
+
+/* ---------- verificación de sesión (equivalente al chequeo de servidor) ---------- */
+const sesion = JSON.parse(localStorage.getItem(CLAVE_SESION) || 'null');
+
+if(!sesion || sesion.rol !== 'Administrador'){
+  registrarEvento('Acceso denegado', 'Sin sesión de Administrador — redirigido a login');
+  window.location.href = 'login.html';
+} else {
+  document.getElementById('app').style.display = 'block';
+  pintarLog();
+}
+</script>
+</body>
+</html>
